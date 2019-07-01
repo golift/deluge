@@ -26,6 +26,8 @@ type Config struct {
 	Timeout   Duration `json:"timeout" toml:"timeout" xml:"timeout" yaml:"timeout"`
 	VerifySSL bool     `json:"verify_ssl" toml:"verify_ssl" xml:"verify_ssl" yaml:"verify_ssl"`
 	Version   string   `json:"version" toml:"version" xml:"version" yaml:"version"`
+
+	DebugLog func(msg string, fmt ...interface{}) `json:"-" toml:"-" xml:"-" yaml:"-"`
 }
 
 // Duration is used to UnmarshalTOML into a time.Duration value.

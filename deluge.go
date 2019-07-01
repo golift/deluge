@@ -51,6 +51,7 @@ func New(config Config) (*Deluge, error) {
 		URL:      config.URL,
 		auth:     config.HTTPUser,
 		Backends: make(map[string]Backend, 0),
+		DebugLog: config.DebugLog,
 		Client: &http.Client{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: config.VerifySSL}},
 			Jar:       jar,
@@ -121,15 +122,17 @@ func (d *Deluge) setVersion() error {
 	if err != nil {
 		return err
 	}
-	server := make([]string, 0)
+	server := make([]interface{}, 0)
 	if err = json.Unmarshal(response.Result, &server); err != nil {
 		d.logPayload(response.Result)
 		return errors.Wrap(err, "json.Unmarshal(rawResult2)")
 	}
-	if len(server) != 3 {
+	if len(server) < 3 {
+		d.logPayload(response.Result)
 		return errors.Errorf("invalid data returned while checking version")
 	}
-	d.Version = server[2]
+	// Version comes last in the mixed list.
+	d.Version = server[len(server)-1].(string)
 	return nil
 }
 
