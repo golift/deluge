@@ -95,7 +95,7 @@ type XferStatus2 struct {
 	SeedsPeersRatio           float64 `json:"seeds_peers_ratio"`
 	SeedRank                  int     `json:"seed_rank"`
 	State                     string  `json:"state"`
-	StopAtRatio               bool    `json:"stop_at_ratio"`
+	StopAtRatio               Bool    `json:"stop_at_ratio"`
 	StopRatio                 float64 `json:"stop_ratio"`
 	TimeAdded                 float64 `json:"time_added"`
 	TotalDone                 float64 `json:"total_done"`
@@ -291,7 +291,7 @@ type XferStatusCompat struct {
 	SeedsPeersRatio           float64     `json:"seeds_peers_ratio"`
 	SeedRank                  int         `json:"seed_rank"`
 	State                     string      `json:"state"`
-	StopAtRatio               bool        `json:"stop_at_ratio"`
+	StopAtRatio               Bool        `json:"stop_at_ratio"`
 	StopRatio                 float64     `json:"stop_ratio"`
 	TimeAdded                 float64     `json:"time_added"`
 	TotalDone                 float64     `json:"total_done"`
@@ -365,4 +365,16 @@ type XferStatusCompat struct {
 		CompleteSent     bool          `json:"complete_sent"`
 		Endpoints        []interface{} `json:"endpoints"`
 	} `json:"trackers"`
+}
+
+// Bool provides a container and unmarshalling for fields that may be
+// boolean or numbrs in the WebUI API.
+type Bool bool
+
+// UnmarshalJSON parses fields that may be numbers or booleans.
+// https://stackoverflow.com/questions/30856454/how-to-unmarshall-both-0-and-false-as-bool-from-json/56832346#56832346
+func (bit *Bool) UnmarshalJSON(b []byte) error {
+	txt := string(b)
+	*bit = Bool(txt == "1" || txt == "true")
+	return nil
 }
