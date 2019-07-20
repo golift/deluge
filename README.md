@@ -15,7 +15,7 @@ package main
 import (
 	"log"
 	"time"
-	"github.com/golift/deluge"
+	"golift.io/deluge"
 )
 
 func main() {
