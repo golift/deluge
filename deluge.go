@@ -50,7 +50,7 @@ func New(config Config) (*Deluge, error) {
 	deluge := &Deluge{
 		URL:      config.URL,
 		auth:     config.HTTPUser,
-		Backends: make(map[string]Backend, 0),
+		Backends: make(map[string]Backend),
 		DebugLog: config.DebugLog,
 		Client: &http.Client{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: config.VerifySSL}},
