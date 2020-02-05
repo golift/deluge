@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -34,7 +34,7 @@ func New(config *Config) (*Deluge, error) {
 	// The cookie jar is used to auth Deluge.
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
-		return nil, errors.Wrap(err, "cookiejar.New(nil)")
+		return nil, fmt.Errorf("cookiejar.New(publicsuffix): %v", err)
 	}
 
 	if !strings.HasSuffix(config.URL, "/") {
@@ -80,12 +80,12 @@ func (d *Deluge) Login(password string) error {
 	// This []string{config.Password} line is how you send auth creds. It's weird.
 	req, err := d.DelReq(AuthLogin, []string{password})
 	if err != nil {
-		return errors.Wrap(err, "DelReq(AuthLogin, json)")
+		return fmt.Errorf("DelReq(AuthLogin, json): %v", err)
 	}
 
 	resp, err := d.Do(req)
 	if err != nil {
-		return errors.Wrap(err, "d.Do(req)")
+		return fmt.Errorf("d.Do(req): %v", err)
 	}
 
 	defer func() {
@@ -94,7 +94,7 @@ func (d *Deluge) Login(password string) error {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.Errorf("authentication failed: %v[%v] (status: %v/%v)",
+		return fmt.Errorf("authentication failed: %v[%v] (status: %v/%v)",
 			req.URL.String(), AuthLogin, resp.StatusCode, resp.Status)
 	}
 
@@ -114,7 +114,7 @@ func (d *Deluge) setVersion() error {
 	servers := make([][]interface{}, 0)
 	if err := json.Unmarshal(response.Result, &servers); err != nil {
 		d.logPayload(response.Result)
-		return errors.Wrap(err, "json.Unmarshal(rawResult1)")
+		return fmt.Errorf("json.Unmarshal(rawResult1): %v", err)
 	}
 
 	serverID := ""
@@ -138,14 +138,14 @@ func (d *Deluge) setVersion() error {
 	server := make([]interface{}, 0)
 	if err = json.Unmarshal(response.Result, &server); err != nil {
 		d.logPayload(response.Result)
-		return errors.Wrap(err, "json.Unmarshal(rawResult2)")
+		return fmt.Errorf("json.Unmarshal(rawResult2): %v", err)
 	}
 
 	const payloadSegments = 3
 
 	if len(server) < payloadSegments {
 		d.logPayload(response.Result)
-		return errors.Errorf("invalid data returned while checking version")
+		return fmt.Errorf("invalid data returned while checking version")
 	}
 
 	// Version comes last in the mixed list.
@@ -160,7 +160,7 @@ func (d Deluge) DelReq(method string, params interface{}) (req *http.Request, er
 
 	paramMap := map[string]interface{}{"method": method, "id": d.id, "params": params}
 	if data, errr := json.Marshal(paramMap); errr != nil {
-		return req, errors.Wrap(errr, "json.Marshal(params)")
+		return req, fmt.Errorf("json.Marshal(params): %v", err)
 	} else if req, err = http.NewRequest("POST", d.URL, bytes.NewBuffer(data)); err == nil {
 		if d.auth != "" {
 			// In case Deluge is also behind HTTP auth.
@@ -180,12 +180,12 @@ func (d Deluge) GetXfers() (map[string]*XferStatus, error) {
 
 	response, err := d.Get(GetAllTorrents, []string{"", ""})
 	if err != nil {
-		return xfers, errors.Wrap(err, "get(GetAllTorrents)")
+		return xfers, fmt.Errorf("get(GetAllTorrents): %v", err)
 	}
 
 	if err := json.Unmarshal(response.Result, &xfers); err != nil {
 		d.logPayload(response.Result)
-		return xfers, errors.Wrap(err, "json.Unmarshal(xfers)")
+		return xfers, fmt.Errorf("json.Unmarshal(xfers): %v", err)
 	}
 
 	return xfers, nil
@@ -200,12 +200,12 @@ func (d Deluge) GetXfersCompat() (map[string]*XferStatusCompat, error) {
 
 	response, err := d.Get(GetAllTorrents, []string{"", ""})
 	if err != nil {
-		return xfers, errors.Wrap(err, "get(GetAllTorrents)")
+		return xfers, fmt.Errorf("get(GetAllTorrents): %v", err)
 	}
 
 	if err := json.Unmarshal(response.Result, &xfers); err != nil {
 		d.logPayload(response.Result)
-		return xfers, errors.Wrap(err, "json.Unmarshal(xfers)")
+		return xfers, fmt.Errorf("json.Unmarshal(xfers): %v", err)
 	}
 
 	return xfers, nil
@@ -217,12 +217,12 @@ func (d Deluge) Get(method string, params interface{}) (*Response, error) {
 
 	req, err := d.DelReq(method, params)
 	if err != nil {
-		return response, errors.Wrap(err, "d.DelReq")
+		return response, fmt.Errorf("d.DelReq: %v", err)
 	}
 
 	resp, err := d.Do(req)
 	if err != nil {
-		return response, errors.Wrap(err, "d.Do")
+		return response, fmt.Errorf("d.Do: %v", err)
 	}
 
 	defer func() {
@@ -231,16 +231,16 @@ func (d Deluge) Get(method string, params interface{}) (*Response, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return response, errors.Wrap(err, "ioutil.ReadAll")
+		return response, fmt.Errorf("ioutil.ReadAll: %v", err)
 	}
 
 	if err = json.Unmarshal(body, &response); err != nil {
 		d.logPayload(response.Result)
-		return response, errors.Wrap(err, "json.Unmarshal(response)")
+		return response, fmt.Errorf("json.Unmarshal(response): %v", err)
 	}
 
 	if response.Error.Code != 0 {
-		return response, errors.New("deluge error: " + response.Error.Message)
+		return response, fmt.Errorf("deluge error: %v", response.Error.Message)
 	}
 
 	return response, nil
