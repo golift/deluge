@@ -19,15 +19,14 @@ const (
 
 // Config is the data needed to poll Deluge.
 type Config struct {
-	URL       string   `json:"url" toml:"url" xml:"url" yaml:"url"`
-	Password  string   `json:"password" toml:"password" xml:"password" yaml:"password"`
-	HTTPPass  string   `json:"http_pass" toml:"http_pass" xml:"http_pass" yaml:"http_pass"`
-	HTTPUser  string   `json:"http_user" toml:"http_user" xml:"http_user" yaml:"http_user"`
-	Timeout   Duration `json:"timeout" toml:"timeout" xml:"timeout" yaml:"timeout"`
-	VerifySSL bool     `json:"verify_ssl" toml:"verify_ssl" xml:"verify_ssl" yaml:"verify_ssl"`
-	Version   string   `json:"version" toml:"version" xml:"version" yaml:"version"`
-
-	DebugLog func(msg string, fmt ...interface{}) `json:"-" toml:"-" xml:"-" yaml:"-"`
+	VerifySSL bool                                 `json:"verify_ssl" toml:"verify_ssl" xml:"verify_ssl" yaml:"verify_ssl"`
+	Timeout   Duration                             `json:"timeout" toml:"timeout" xml:"timeout" yaml:"timeout"`
+	URL       string                               `json:"url" toml:"url" xml:"url" yaml:"url"`
+	Password  string                               `json:"password" toml:"password" xml:"password" yaml:"password"`
+	HTTPPass  string                               `json:"http_pass" toml:"http_pass" xml:"http_pass" yaml:"http_pass"`
+	HTTPUser  string                               `json:"http_user" toml:"http_user" xml:"http_user" yaml:"http_user"`
+	Version   string                               `json:"version" toml:"version" xml:"version" yaml:"version"`
+	DebugLog  func(msg string, fmt ...interface{}) `json:"-" toml:"-" xml:"-" yaml:"-"`
 }
 
 // Duration is used to UnmarshalTOML into a time.Duration value.
@@ -44,8 +43,8 @@ type Response struct {
 	ID     int64           `json:"id"`
 	Result json.RawMessage `json:"result"`
 	Error  struct {
-		Message string `json:"message"`
 		Code    int    `json:"code"`
+		Message string `json:"message"`
 	} `json:"error"`
 }
 
@@ -109,28 +108,28 @@ type XferStatus2 struct {
 	Tracker                   string  `json:"tracker"`
 	TrackerHost               string  `json:"tracker_host"`
 	Trackers                  []struct {
-		URL       string `json:"url"`
-		Trackerid string `json:"trackerid"`
-		Tier      int    `json:"tier"`
-		FailLimit int    `json:"fail_limit"`
-		Source    int    `json:"source"`
-		Verified  bool   `json:"verified"`
-		Message   string `json:"message"`
-		LastError struct {
-			Value    int    `json:"value"`
-			Category string `json:"category"`
-		} `json:"last_error"`
 		NextAnnounce     interface{}   `json:"next_announce"`
 		MinAnnounce      interface{}   `json:"min_announce"`
+		Endpoints        []interface{} `json:"endpoints"`
+		Updating         bool          `json:"updating"`
+		StartSent        bool          `json:"start_sent"`
+		CompleteSent     bool          `json:"complete_sent"`
+		SendStats        bool          `json:"send_stats"`
+		Verified         bool          `json:"verified"`
+		Tier             int           `json:"tier"`
+		FailLimit        int           `json:"fail_limit"`
+		Source           int           `json:"source"`
 		ScrapeIncomplete float64       `json:"scrape_incomplete"`
 		ScrapeComplete   float64       `json:"scrape_complete"`
 		ScrapeDownloaded float64       `json:"scrape_downloaded"`
 		Fails            int64         `json:"fails"`
-		Updating         bool          `json:"updating"`
-		StartSent        bool          `json:"start_sent"`
-		CompleteSent     bool          `json:"complete_sent"`
-		Endpoints        []interface{} `json:"endpoints"`
-		SendStats        bool          `json:"send_stats"`
+		URL              string        `json:"url"`
+		Trackerid        string        `json:"trackerid"`
+		Message          string        `json:"message"`
+		LastError        struct {
+			Value    int    `json:"value"`
+			Category string `json:"category"`
+		} `json:"last_error"`
 	} `json:"trackers"`
 	TrackerStatus     string      `json:"tracker_status"`
 	UploadPayloadRate float64     `json:"upload_payload_rate"`
@@ -229,18 +228,18 @@ type XferStatus struct {
 	Peers               []interface{} `json:"peers"`
 	Name                string        `json:"name"`
 	Trackers            []struct {
-		SendStats    bool        `json:"send_stats"`
-		Fails        int64       `json:"fails"`
-		Verified     bool        `json:"verified"`
 		MinAnnounce  interface{} `json:"min_announce"`
-		URL          string      `json:"url"`
-		FailLimit    int64       `json:"fail_limit"`
 		NextAnnounce interface{} `json:"next_announce"`
+		SendStats    bool        `json:"send_stats"`
+		Verified     bool        `json:"verified"`
 		CompleteSent bool        `json:"complete_sent"`
-		Source       int64       `json:"source"`
 		StartSent    bool        `json:"start_sent"`
-		Tier         int64       `json:"tier"`
 		Updating     bool        `json:"updating"`
+		Fails        int64       `json:"fails"`
+		FailLimit    int64       `json:"fail_limit"`
+		Source       int64       `json:"source"`
+		Tier         int64       `json:"tier"`
+		URL          string      `json:"url"`
 	} `json:"trackers"`
 	TotalPayloadDownload int64       `json:"total_payload_download"`
 	IsAutoManaged        bool        `json:"is_auto_managed"`
@@ -252,7 +251,7 @@ type XferStatus struct {
 	IsFinished           bool        `json:"is_finished"`
 }
 
-// XferStatusCompat is a compatibile struct for Deluge 1 and 2 API data.
+// XferStatusCompat is a compatible struct for Deluge 1 and 2 API data.
 type XferStatusCompat struct {
 	ActiveTime                float64     `json:"active_time"`
 	SeedingTime               float64     `json:"seeding_time"`
@@ -342,28 +341,28 @@ type XferStatusCompat struct {
 	TimeSinceTransfer float64       `json:"time_since_transfer"`
 	Label             string        `json:"label"`
 	Trackers          []struct {
-		SendStats bool    `json:"send_stats"`
-		Source    float64 `json:"source"`
-		StartSent bool    `json:"start_sent"`
-		URL       string  `json:"url"`
-		Trackerid string  `json:"trackerid"`
-		Tier      float64 `json:"tier"`
-		FailLimit int64   `json:"fail_limit"`
-		Verified  bool    `json:"verified"`
-		Message   string  `json:"message"`
-		LastError struct {
-			Value    int    `json:"value"`
-			Category string `json:"category"`
-		} `json:"last_error"`
 		NextAnnounce     interface{}   `json:"next_announce"`
 		MinAnnounce      interface{}   `json:"min_announce"`
+		Endpoints        []interface{} `json:"endpoints"`
+		Updating         bool          `json:"updating"`
+		CompleteSent     bool          `json:"complete_sent"`
+		SendStats        bool          `json:"send_stats"`
+		StartSent        bool          `json:"start_sent"`
+		Verified         bool          `json:"verified"`
+		FailLimit        int64         `json:"fail_limit"`
+		Fails            int64         `json:"fails"`
+		Source           float64       `json:"source"`
+		Tier             float64       `json:"tier"`
 		ScrapeIncomplete float64       `json:"scrape_incomplete"`
 		ScrapeComplete   float64       `json:"scrape_complete"`
 		ScrapeDownloaded float64       `json:"scrape_downloaded"`
-		Fails            int64         `json:"fails"`
-		Updating         bool          `json:"updating"`
-		CompleteSent     bool          `json:"complete_sent"`
-		Endpoints        []interface{} `json:"endpoints"`
+		URL              string        `json:"url"`
+		Trackerid        string        `json:"trackerid"`
+		Message          string        `json:"message"`
+		LastError        struct {
+			Value    int    `json:"value"`
+			Category string `json:"category"`
+		} `json:"last_error"`
 	} `json:"trackers"`
 }
 
@@ -376,5 +375,6 @@ type Bool bool
 func (bit *Bool) UnmarshalJSON(b []byte) error {
 	txt := string(b)
 	*bit = Bool(txt == "1" || txt == "true")
+
 	return nil
 }

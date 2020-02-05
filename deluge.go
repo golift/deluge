@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/net/publicsuffix"
 )
 
 // Deluge is what you get for providing a password.
@@ -29,15 +30,17 @@ type Deluge struct {
 
 // New creates a http.Client with authenticated cookies.
 // Used to make additional, authenticated requests to the APIs.
-func New(config Config) (*Deluge, error) {
+func New(config *Config) (*Deluge, error) {
 	// The cookie jar is used to auth Deluge.
-	jar, err := cookiejar.New(nil)
+	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return nil, errors.Wrap(err, "cookiejar.New(nil)")
 	}
+
 	if !strings.HasSuffix(config.URL, "/") {
 		config.URL += "/"
 	}
+
 	config.URL += "json"
 
 	// This app allows http auth, in addition to deluge web password.
@@ -58,14 +61,17 @@ func New(config Config) (*Deluge, error) {
 			Timeout:   config.Timeout.Round(time.Millisecond),
 		},
 	}
+
 	if err := deluge.Login(config.Password); err != nil {
 		return deluge, err
 	}
+
 	if deluge.Version = config.Version; deluge.Version == "" {
 		if err := deluge.setVersion(); err != nil {
 			return deluge, err
 		}
 	}
+
 	return deluge, nil
 }
 
@@ -76,18 +82,22 @@ func (d *Deluge) Login(password string) error {
 	if err != nil {
 		return errors.Wrap(err, "DelReq(AuthLogin, json)")
 	}
+
 	resp, err := d.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "d.Do(req)")
 	}
+
 	defer func() {
 		_, _ = io.Copy(ioutil.Discard, resp.Body)
 		_ = resp.Body.Close()
 	}()
+
 	if resp.StatusCode != http.StatusOK {
 		return errors.Errorf("authentication failed: %v[%v] (status: %v/%v)",
 			req.URL.String(), AuthLogin, resp.StatusCode, resp.Status)
 	}
+
 	return nil
 }
 
@@ -98,6 +108,7 @@ func (d *Deluge) setVersion() error {
 	if err != nil {
 		return err
 	}
+
 	// This method returns a "mixed list" which requires an interface.
 	// Deluge devs apparently hate Go. :(
 	servers := make([][]interface{}, 0)
@@ -106,8 +117,9 @@ func (d *Deluge) setVersion() error {
 		return errors.Wrap(err, "json.Unmarshal(rawResult1)")
 	}
 
-	// Store each server info (so consumers can access them easily).
 	serverID := ""
+
+	// Store each server info (so consumers can access them easily).
 	for _, server := range servers {
 		serverID = server[0].(string)
 		d.Backends[serverID] = Backend{
@@ -122,23 +134,30 @@ func (d *Deluge) setVersion() error {
 	if err != nil {
 		return err
 	}
+
 	server := make([]interface{}, 0)
 	if err = json.Unmarshal(response.Result, &server); err != nil {
 		d.logPayload(response.Result)
 		return errors.Wrap(err, "json.Unmarshal(rawResult2)")
 	}
-	if len(server) < 3 {
+
+	const payloadSegments = 3
+
+	if len(server) < payloadSegments {
 		d.logPayload(response.Result)
 		return errors.Errorf("invalid data returned while checking version")
 	}
+
 	// Version comes last in the mixed list.
 	d.Version = server[len(server)-1].(string)
+
 	return nil
 }
 
 // DelReq is a small helper function that adds headers and marshals the json.
 func (d Deluge) DelReq(method string, params interface{}) (req *http.Request, err error) {
 	d.id++
+
 	paramMap := map[string]interface{}{"method": method, "id": d.id, "params": params}
 	if data, errr := json.Marshal(paramMap); errr != nil {
 		return req, errors.Wrap(errr, "json.Marshal(params)")
@@ -147,21 +166,28 @@ func (d Deluge) DelReq(method string, params interface{}) (req *http.Request, er
 			// In case Deluge is also behind HTTP auth.
 			req.Header.Add("Authorization", d.auth)
 		}
+
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Add("Accept", "application/json")
 	}
+
 	return
 }
 
 // GetXfers gets all the Transfers from Deluge.
 func (d Deluge) GetXfers() (map[string]*XferStatus, error) {
 	xfers := make(map[string]*XferStatus)
-	if response, err := d.Get(GetAllTorrents, []string{"", ""}); err != nil {
+
+	response, err := d.Get(GetAllTorrents, []string{"", ""})
+	if err != nil {
 		return xfers, errors.Wrap(err, "get(GetAllTorrents)")
-	} else if err := json.Unmarshal(response.Result, &xfers); err != nil {
+	}
+
+	if err := json.Unmarshal(response.Result, &xfers); err != nil {
 		d.logPayload(response.Result)
 		return xfers, errors.Wrap(err, "json.Unmarshal(xfers)")
 	}
+
 	return xfers, nil
 }
 
@@ -171,28 +197,34 @@ func (d Deluge) GetXfers() (map[string]*XferStatus, error) {
 // All of the data for either version will be made available with this method.
 func (d Deluge) GetXfersCompat() (map[string]*XferStatusCompat, error) {
 	xfers := make(map[string]*XferStatusCompat)
+
 	response, err := d.Get(GetAllTorrents, []string{"", ""})
 	if err != nil {
 		return xfers, errors.Wrap(err, "get(GetAllTorrents)")
 	}
+
 	if err := json.Unmarshal(response.Result, &xfers); err != nil {
 		d.logPayload(response.Result)
 		return xfers, errors.Wrap(err, "json.Unmarshal(xfers)")
 	}
+
 	return xfers, nil
 }
 
 // Get a response from Deluge
 func (d Deluge) Get(method string, params interface{}) (*Response, error) {
 	response := new(Response)
+
 	req, err := d.DelReq(method, params)
 	if err != nil {
 		return response, errors.Wrap(err, "d.DelReq")
 	}
+
 	resp, err := d.Do(req)
 	if err != nil {
 		return response, errors.Wrap(err, "d.Do")
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
@@ -201,13 +233,16 @@ func (d Deluge) Get(method string, params interface{}) (*Response, error) {
 	if err != nil {
 		return response, errors.Wrap(err, "ioutil.ReadAll")
 	}
+
 	if err = json.Unmarshal(body, &response); err != nil {
 		d.logPayload(response.Result)
 		return response, errors.Wrap(err, "json.Unmarshal(response)")
 	}
+
 	if response.Error.Code != 0 {
 		return response, errors.New("deluge error: " + response.Error.Message)
 	}
+
 	return response, nil
 }
 
@@ -221,7 +256,9 @@ func (d *Deluge) Log(msg string, fmt ...interface{}) {
 // logPayload writes a json payload to output. Used for debugging API data.
 func (d *Deluge) logPayload(result json.RawMessage) {
 	out, err := result.MarshalJSON()
+
 	d.Log("Failed Payload:\n%s\n", string(out))
+
 	if err != nil {
 		d.Log("Payload Marshal Error: %v", err)
 	}
