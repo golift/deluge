@@ -1,5 +1,5 @@
 module golift.io/deluge
 
-go 1.13
+go 1.17
 
-require golang.org/x/net v0.0.0-20200202094626-16171245cfb2
+require golang.org/x/net v0.0.0-20211118161319-6a13c67c3ce4
