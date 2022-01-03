@@ -59,6 +59,7 @@ func newConfig(config *Config, login bool) (*Deluge, error) {
 		return nil, fmt.Errorf("cookiejar.New(publicsuffix): %w", err)
 	}
 
+	config.URL = strings.TrimSuffix(config.URL, "/json")
 	if !strings.HasSuffix(config.URL, "/") {
 		config.URL += "/"
 	}
