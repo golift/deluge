@@ -59,12 +59,7 @@ func newConfig(config *Config, login bool) (*Deluge, error) {
 		return nil, fmt.Errorf("cookiejar.New(publicsuffix): %w", err)
 	}
 
-	config.URL = strings.TrimSuffix(config.URL, "/json")
-	if !strings.HasSuffix(config.URL, "/") {
-		config.URL += "/"
-	}
-
-	config.URL += "json"
+	config.URL = strings.TrimSuffix(strings.TrimSuffix(config.URL, "/json"), "/") + "/json"
 
 	// This app allows http auth, in addition to deluge web password.
 	if both := config.HTTPUser + ":" + config.HTTPPass; both != ":" {
