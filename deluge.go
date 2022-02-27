@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"golang.org/x/net/publicsuffix"
+	"golift.io/datacounter"
 )
 
 // Custom errors.
@@ -42,21 +43,23 @@ type Deluge struct {
 }
 
 // NewNoAuth returns a Deluge object without authenticating or trying to connect.
-func NewNoAuth(config *Config) (*Deluge, error) {
+func NewNoAuth(config *Config) (int64, *Deluge, error) {
 	return newConfig(config, false)
 }
 
 // New creates a http.Client with authenticated cookies.
 // Used to make additional, authenticated requests to the APIs.
-func New(config *Config) (*Deluge, error) {
+func New(config *Config) (int64, *Deluge, error) {
 	return newConfig(config, true)
 }
 
-func newConfig(config *Config, login bool) (*Deluge, error) {
+func newConfig(config *Config, login bool) (int64, *Deluge, error) {
+	var bytes int64
+
 	// The cookie jar is used to auth Deluge.
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
-		return nil, fmt.Errorf("cookiejar.New(publicsuffix): %w", err)
+		return bytes, nil, fmt.Errorf("cookiejar.New(publicsuffix): %w", err)
 	}
 
 	config.URL = strings.TrimSuffix(strings.TrimSuffix(config.URL, "/json"), "/") + "/json"
@@ -83,56 +86,62 @@ func newConfig(config *Config, login bool) (*Deluge, error) {
 	}
 
 	if !login {
-		return deluge, nil
+		return bytes, deluge, nil
 	}
 
-	if err := deluge.Login(); err != nil {
-		return deluge, err
+	size, err := deluge.Login()
+	bytes += size
+
+	if err != nil {
+		return bytes, deluge, err
 	}
 
 	if deluge.Version = config.Version; deluge.Version == "" {
-		if err := deluge.setVersion(); err != nil {
-			return deluge, err
+		size, err = deluge.setVersion()
+		bytes += size
+
+		if err != nil {
+			return bytes, deluge, err
 		}
 	}
 
-	return deluge, nil
+	return bytes, deluge, nil
 }
 
 // Login sets the cookie jar with authentication information.
-func (d *Deluge) Login() error {
+func (d *Deluge) Login() (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), d.Timeout.Duration)
 	defer cancel()
 
 	// This []string{config.Password} line is how you send auth creds. It's weird.
 	req, err := d.DelReq(ctx, AuthLogin, []string{d.Password})
 	if err != nil {
-		return fmt.Errorf("DelReq(AuthLogin, json): %w", err)
+		return 0, fmt.Errorf("DelReq(AuthLogin, json): %w", err)
 	}
 
 	resp, err := d.Do(req)
 	if err != nil {
-		return fmt.Errorf("d.Do(req): %w", err)
+		return 0, fmt.Errorf("d.Do(req): %w", err)
 	}
 	defer resp.Body.Close()
 
-	_, _ = io.Copy(ioutil.Discard, resp.Body) // must read body to avoid memory leak.
+	size, _ := io.Copy(ioutil.Discard, resp.Body) // must read body to avoid memory leak.
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("%w: %v[%v] (status: %v/%v)",
+		return size, fmt.Errorf("%w: %v[%v] (status: %v/%v)",
 			ErrAuthFailed, req.URL.String(), AuthLogin, resp.StatusCode, resp.Status)
 	}
 
 	d.Client.cookie = true
 
-	return nil
+	return size, nil
 }
 
 // setVersion digs into the first server in the web UI to find the version.
-func (d *Deluge) setVersion() error {
-	response, err := d.Get(GeHosts, []string{})
+func (d *Deluge) setVersion() (int64, error) {
+	bytes, response, err := d.Get(GeHosts, []string{})
 	if err != nil {
-		return err
+		return bytes, err
 	}
 
 	// This method returns a "mixed list" which requires an interface.
@@ -140,7 +149,7 @@ func (d *Deluge) setVersion() error {
 	servers := make([][]interface{}, 0)
 	if err := json.Unmarshal(response.Result, &servers); err != nil {
 		d.logPayload(response.Result)
-		return fmt.Errorf("json.Unmarshal(rawResult1): %w", err)
+		return bytes, fmt.Errorf("json.Unmarshal(rawResult1): %w", err)
 	}
 
 	serverID := ""
@@ -155,32 +164,36 @@ func (d *Deluge) setVersion() error {
 		}
 	}
 
+	total := bytes
+
 	// Store the last server's version as "the version"
-	response, err = d.Get(HostStatus, []string{serverID})
+	bytes, response, err = d.Get(HostStatus, []string{serverID})
 	if err != nil {
-		return err
+		return total + bytes, err
 	}
+
+	total += bytes
 
 	server := make([]interface{}, 0)
 	if err = json.Unmarshal(response.Result, &server); err != nil {
 		d.logPayload(response.Result)
-		return fmt.Errorf("json.Unmarshal(rawResult2): %w", err)
+		return total, fmt.Errorf("json.Unmarshal(rawResult2): %w", err)
 	}
 
 	const payloadSegments = 3
 
 	if len(server) < payloadSegments {
 		d.logPayload(response.Result)
-		return ErrInvalidVersion
+		return total, ErrInvalidVersion
 	}
 
 	// Version comes last in the mixed list.
 	var ok bool
 	if d.Version, ok = server[len(server)-1].(string); !ok {
-		return ErrInvalidVersion
+		return total, ErrInvalidVersion
 	}
 
-	return nil
+	return total, nil
 }
 
 // DelReq is a small helper function that adds headers and marshals the json.
@@ -204,49 +217,49 @@ func (d Deluge) DelReq(ctx context.Context, method string, params interface{}) (
 }
 
 // GetXfers gets all the Transfers from Deluge.
-func (d Deluge) GetXfers() (map[string]*XferStatus, error) {
+func (d Deluge) GetXfers() (int64, map[string]*XferStatus, error) {
 	xfers := make(map[string]*XferStatus)
 
-	response, err := d.Get(GetAllTorrents, []string{"", ""})
+	bytes, response, err := d.Get(GetAllTorrents, []string{"", ""})
 	if err != nil {
-		return xfers, fmt.Errorf("get(GetAllTorrents): %w", err)
+		return bytes, xfers, fmt.Errorf("get(GetAllTorrents): %w", err)
 	}
 
 	if err := json.Unmarshal(response.Result, &xfers); err != nil {
 		d.logPayload(response.Result)
-		return xfers, fmt.Errorf("json.Unmarshal(xfers): %w", err)
+		return bytes, xfers, fmt.Errorf("json.Unmarshal(xfers): %w", err)
 	}
 
-	return xfers, nil
+	return bytes, xfers, nil
 }
 
 // GetXfersCompat gets all the Transfers from Deluge 1.x or 2.x.
 // Depend on what you're actually trying to do, this is likely the best method to use.
 // This will return a combined struct hat has data for Deluge 1 and Deluge 2.
 // All of the data for either version will be made available with this method.
-func (d Deluge) GetXfersCompat() (map[string]*XferStatusCompat, error) {
+func (d Deluge) GetXfersCompat() (int64, map[string]*XferStatusCompat, error) {
 	xfers := make(map[string]*XferStatusCompat)
 
-	response, err := d.Get(GetAllTorrents, []string{"", ""})
+	bytes, response, err := d.Get(GetAllTorrents, []string{"", ""})
 	if err != nil {
-		return xfers, fmt.Errorf("get(GetAllTorrents): %w", err)
+		return bytes, xfers, fmt.Errorf("get(GetAllTorrents): %w", err)
 	}
 
 	if err := json.Unmarshal(response.Result, &xfers); err != nil {
 		d.logPayload(response.Result)
-		return xfers, fmt.Errorf("json.Unmarshal(xfers): %w", err)
+		return bytes, xfers, fmt.Errorf("json.Unmarshal(xfers): %w", err)
 	}
 
-	return xfers, nil
+	return bytes, xfers, nil
 }
 
 // Get a response from Deluge.
-func (d Deluge) Get(method string, params interface{}) (*Response, error) {
-	response := new(Response)
+func (d Deluge) Get(method string, params interface{}) (int64, *Response, error) {
+	var response Response
 
 	if !d.cookie {
-		if err := d.Login(); err != nil {
-			return response, err
+		if size, err := d.Login(); err != nil {
+			return size, &response, err
 		}
 	}
 
@@ -255,30 +268,28 @@ func (d Deluge) Get(method string, params interface{}) (*Response, error) {
 
 	req, err := d.DelReq(ctx, method, params)
 	if err != nil {
-		return response, fmt.Errorf("d.DelReq: %w", err)
+		return 0, &response, fmt.Errorf("d.DelReq: %w", err)
 	}
 
 	resp, err := d.Do(req)
 	if err != nil {
-		return response, fmt.Errorf("d.Do: %w", err)
+		d.Client.cookie = false
+		return 0, &response, fmt.Errorf("d.Do: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return response, fmt.Errorf("ioutil.ReadAll: %w", err)
-	}
+	counter := datacounter.NewReaderCounter(resp.Body)
 
-	if err = json.Unmarshal(body, &response); err != nil {
+	if err = json.NewDecoder(counter).Decode(&response); err != nil {
 		d.logPayload(response.Result)
-		return response, fmt.Errorf("json.Unmarshal(response): %w", err)
+		return int64(counter.Count()), &response, fmt.Errorf("json.Unmarshal(response): %w", err)
 	}
 
 	if response.Error.Code != 0 {
-		return response, fmt.Errorf("%w: %s", ErrDelugeError, response.Error.Message)
+		return int64(counter.Count()), &response, fmt.Errorf("%w: %s", ErrDelugeError, response.Error.Message)
 	}
 
-	return response, nil
+	return int64(counter.Count()), &response, nil
 }
 
 // Log logs a debug message.
