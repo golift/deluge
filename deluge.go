@@ -273,7 +273,6 @@ func (d Deluge) Get(method string, params interface{}) (int64, *Response, error)
 
 	resp, err := d.Do(req)
 	if err != nil {
-		d.Client.cookie = false
 		return 0, &response, fmt.Errorf("d.Do: %w", err)
 	}
 	defer resp.Body.Close()
@@ -286,6 +285,7 @@ func (d Deluge) Get(method string, params interface{}) (int64, *Response, error)
 	}
 
 	if response.Error.Code != 0 {
+		d.Client.cookie = false
 		return int64(counter.Count()), &response, fmt.Errorf("%w: %s", ErrDelugeError, response.Error.Message)
 	}
 
