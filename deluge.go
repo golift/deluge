@@ -38,16 +38,16 @@ type Deluge struct {
 
 // NewNoAuth returns a Deluge object without authenticating or trying to connect.
 func NewNoAuth(config *Config) (*Deluge, error) {
-	return newConfig(config, false)
+	return newConfig(context.TODO(), config, false)
 }
 
 // New creates a http.Client with authenticated cookies.
 // Used to make additional, authenticated requests to the APIs.
-func New(config *Config) (*Deluge, error) {
-	return newConfig(config, true)
+func New(ctx context.Context, config *Config) (*Deluge, error) {
+	return newConfig(ctx, config, true)
 }
 
-func newConfig(config *Config, login bool) (*Deluge, error) {
+func newConfig(ctx context.Context, config *Config, login bool) (*Deluge, error) {
 	// The cookie jar is used to auth Deluge.
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
@@ -84,12 +84,12 @@ func newConfig(config *Config, login bool) (*Deluge, error) {
 		return deluge, nil
 	}
 
-	if err := deluge.Login(); err != nil {
+	if err := deluge.LoginContext(ctx); err != nil {
 		return deluge, err
 	}
 
 	if deluge.Version = config.Version; deluge.Version == "" {
-		err = deluge.setVersion()
+		err = deluge.setVersion(ctx)
 
 		if err != nil {
 			return deluge, err
@@ -131,8 +131,8 @@ func (d *Deluge) LoginContext(ctx context.Context) error {
 }
 
 // setVersion digs into the first server in the web UI to find the version.
-func (d *Deluge) setVersion() error {
-	response, err := d.Get(GeHosts, []string{})
+func (d *Deluge) setVersion(ctx context.Context) error {
+	response, err := d.Get(ctx, GeHosts, []string{})
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func (d *Deluge) setVersion() error {
 	}
 
 	// Store the last server's version as "the version"
-	response, err = d.Get(HostStatus, []string{serverID})
+	response, err = d.Get(ctx, HostStatus, []string{serverID})
 	if err != nil {
 		return err
 	}
@@ -206,10 +206,14 @@ func (d Deluge) DelReq(ctx context.Context, method string, params interface{}) (
 }
 
 // GetXfers gets all the Transfers from Deluge.
-func (d Deluge) GetXfers() (map[string]*XferStatus, error) {
+func (d *Deluge) GetXfers() (map[string]*XferStatus, error) {
+	return d.GetXfersContext(context.Background())
+}
+
+func (d *Deluge) GetXfersContext(ctx context.Context) (map[string]*XferStatus, error) {
 	xfers := make(map[string]*XferStatus)
 
-	response, err := d.Get(GetAllTorrents, []string{"", ""})
+	response, err := d.Get(ctx, GetAllTorrents, []string{"", ""})
 	if err != nil {
 		return xfers, fmt.Errorf("get(GetAllTorrents): %w", err)
 	}
@@ -226,10 +230,14 @@ func (d Deluge) GetXfers() (map[string]*XferStatus, error) {
 // Depend on what you're actually trying to do, this is likely the best method to use.
 // This will return a combined struct hat has data for Deluge 1 and Deluge 2.
 // All of the data for either version will be made available with this method.
-func (d Deluge) GetXfersCompat() (map[string]*XferStatusCompat, error) {
+func (d *Deluge) GetXfersCompat() (map[string]*XferStatusCompat, error) {
+	return d.GetXfersCompatContext(context.Background())
+}
+
+func (d *Deluge) GetXfersCompatContext(ctx context.Context) (map[string]*XferStatusCompat, error) {
 	xfers := make(map[string]*XferStatusCompat)
 
-	response, err := d.Get(GetAllTorrents, []string{"", ""})
+	response, err := d.Get(ctx, GetAllTorrents, []string{"", ""})
 	if err != nil {
 		return xfers, fmt.Errorf("get(GetAllTorrents): %w", err)
 	}
@@ -243,11 +251,7 @@ func (d Deluge) GetXfersCompat() (map[string]*XferStatusCompat, error) {
 }
 
 // Get a response from Deluge.
-func (d *Deluge) Get(method string, params interface{}) (*Response, error) {
-	return d.GetContext(context.Background(), method, params)
-}
-
-func (d *Deluge) GetContext(ctx context.Context, method string, params interface{}) (*Response, error) {
+func (d *Deluge) Get(ctx context.Context, method string, params interface{}) (*Response, error) {
 	var response Response
 
 	if !d.cookie {
