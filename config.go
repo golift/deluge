@@ -2,7 +2,7 @@ package deluge
 
 import (
 	"encoding/json"
-	"time"
+	"net/http"
 )
 
 // Deluge WebUI methods.
@@ -19,23 +19,13 @@ const (
 
 // Config is the data needed to poll Deluge.
 type Config struct {
-	VerifySSL bool                                 `json:"verify_ssl" toml:"verify_ssl" xml:"verify_ssl" yaml:"verify_ssl"`
-	Timeout   Duration                             `json:"timeout" toml:"timeout" xml:"timeout" yaml:"timeout"`
-	URL       string                               `json:"url" toml:"url" xml:"url" yaml:"url"`
-	Password  string                               `json:"password" toml:"password" xml:"password" yaml:"password"`
-	HTTPPass  string                               `json:"http_pass" toml:"http_pass" xml:"http_pass" yaml:"http_pass"`
-	HTTPUser  string                               `json:"http_user" toml:"http_user" xml:"http_user" yaml:"http_user"`
-	Version   string                               `json:"version" toml:"version" xml:"version" yaml:"version"`
-	DebugLog  func(msg string, fmt ...interface{}) `json:"-" toml:"-" xml:"-" yaml:"-"`
-}
-
-// Duration is used to UnmarshalTOML into a time.Duration value.
-type Duration struct{ time.Duration }
-
-// UnmarshalText parses a duration type from a config file.
-func (d *Duration) UnmarshalText(data []byte) (err error) {
-	d.Duration, err = time.ParseDuration(string(data))
-	return
+	URL      string                               `json:"url" toml:"url" xml:"url" yaml:"url"`
+	Password string                               `json:"password" toml:"password" xml:"password" yaml:"password"`
+	HTTPPass string                               `json:"http_pass" toml:"http_pass" xml:"http_pass" yaml:"http_pass"`
+	HTTPUser string                               `json:"http_user" toml:"http_user" xml:"http_user" yaml:"http_user"`
+	Version  string                               `json:"version" toml:"version" xml:"version" yaml:"version"`
+	DebugLog func(msg string, fmt ...interface{}) `json:"-" toml:"-" xml:"-" yaml:"-"`
+	Client   *http.Client                         `json:"-" toml:"-" xml:"-" yaml:"-"`
 }
 
 // Response from Deluge
