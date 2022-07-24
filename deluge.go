@@ -31,7 +31,6 @@ type Deluge struct {
 	auth     string
 	id       int
 	client   *http.Client
-	cookie   bool
 	Version  string             // Currently unused, for display purposes only.
 	Backends map[string]Backend // Currently unused, for display purposes only.
 }
@@ -121,8 +120,6 @@ func (d *Deluge) LoginContext(ctx context.Context) error {
 		return fmt.Errorf("%w: %v[%v] (status: %v/%v)",
 			ErrAuthFailed, req.URL.String(), AuthLogin, resp.StatusCode, resp.Status)
 	}
-
-	d.cookie = true
 
 	return nil
 }
@@ -244,12 +241,10 @@ func (d *Deluge) GetXfersCompatContext(ctx context.Context) (map[string]*XferSta
 
 // Get a response from Deluge.
 func (d *Deluge) Get(ctx context.Context, method string, params interface{}) (*Response, error) {
-	if !d.cookie {
-		if err := d.LoginContext(ctx); err != nil {
-			return nil, err
-		}
-	}
+	return d.req(ctx, method, params, true)
+}
 
+func (d *Deluge) req(ctx context.Context, method string, params interface{}, loop bool) (*Response, error) {
 	req, err := d.DelReq(ctx, method, params)
 	if err != nil {
 		return nil, fmt.Errorf("d.DelReq: %w", err)
@@ -267,7 +262,14 @@ func (d *Deluge) Get(ctx context.Context, method string, params interface{}) (*R
 	}
 
 	if response.Error.Code != 0 {
-		d.cookie = false
+		if err := d.LoginContext(ctx); err != nil {
+			return nil, err
+		}
+
+		if loop {
+			return d.req(ctx, method, params, false)
+		}
+
 		return &response, fmt.Errorf("%w: %s", ErrDelugeError, response.Error.Message)
 	}
 
