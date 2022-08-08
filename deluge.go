@@ -24,16 +24,15 @@ var (
 )
 
 // Deluge is what you get for providing a password.
+// Version and Backends are only filled if you call New().
 type Deluge struct {
 	password string
 	url      string
 	auth     string
 	id       int
 	client   *http.Client
-	cookie   bool
 	Version  string             // Currently unused, for display purposes only.
 	Backends map[string]Backend // Currently unused, for display purposes only.
-	debug    func(msg string, fmt ...interface{})
 }
 
 // NewNoAuth returns a Deluge object without authenticating or trying to connect.
@@ -54,7 +53,7 @@ func newConfig(ctx context.Context, config *Config, login bool) (*Deluge, error)
 		return nil, fmt.Errorf("cookiejar.New(publicsuffix): %w", err)
 	}
 
-	config.URL = strings.TrimSuffix(strings.TrimSuffix(config.URL, "/json"), "/") + "/json"
+	delugeURL := strings.TrimSuffix(strings.TrimSuffix(config.URL, "/json"), "/") + "/json"
 
 	// This app allows http auth, in addition to deluge web password.
 	auth := config.HTTPUser + ":" + config.HTTPPass
@@ -75,9 +74,8 @@ func newConfig(ctx context.Context, config *Config, login bool) (*Deluge, error)
 		auth:     auth,
 		Backends: make(map[string]Backend),
 		password: config.Password,
-		url:      config.URL,
+		url:      delugeURL,
 		client:   httpClient,
-		debug:    config.DebugLog,
 	}
 
 	if !login {
@@ -89,9 +87,7 @@ func newConfig(ctx context.Context, config *Config, login bool) (*Deluge, error)
 	}
 
 	if deluge.Version = config.Version; deluge.Version == "" {
-		err = deluge.setVersion(ctx)
-
-		if err != nil {
+		if err = deluge.setVersion(ctx); err != nil {
 			return deluge, err
 		}
 	}
@@ -106,7 +102,7 @@ func (d *Deluge) Login() error {
 
 // LoginContext sets the cookie jar with authentication information.
 func (d *Deluge) LoginContext(ctx context.Context) error {
-	// This []string{config.Password} line is how you send auth creds. It's weird.
+	// This line is how you send auth creds.
 	req, err := d.DelReq(ctx, AuthLogin, []string{d.password})
 	if err != nil {
 		return fmt.Errorf("DelReq(AuthLogin, json): %w", err)
@@ -125,8 +121,6 @@ func (d *Deluge) LoginContext(ctx context.Context) error {
 			ErrAuthFailed, req.URL.String(), AuthLogin, resp.StatusCode, resp.Status)
 	}
 
-	d.cookie = true
-
 	return nil
 }
 
@@ -141,7 +135,6 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 	// Deluge devs apparently hate Go. :(
 	servers := make([][]interface{}, 0)
 	if err := json.Unmarshal(response.Result, &servers); err != nil {
-		d.logPayload(response.Result)
 		return fmt.Errorf("json.Unmarshal(rawResult1): %w", err)
 	}
 
@@ -165,14 +158,12 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 
 	server := make([]interface{}, 0)
 	if err = json.Unmarshal(response.Result, &server); err != nil {
-		d.logPayload(response.Result)
 		return fmt.Errorf("json.Unmarshal(rawResult2): %w", err)
 	}
 
 	const payloadSegments = 3
 
 	if len(server) < payloadSegments {
-		d.logPayload(response.Result)
 		return ErrInvalidVersion
 	}
 
@@ -215,12 +206,11 @@ func (d *Deluge) GetXfersContext(ctx context.Context) (map[string]*XferStatus, e
 
 	response, err := d.Get(ctx, GetAllTorrents, []string{"", ""})
 	if err != nil {
-		return xfers, fmt.Errorf("get(GetAllTorrents): %w", err)
+		return nil, fmt.Errorf("get(GetAllTorrents): %w", err)
 	}
 
 	if err := json.Unmarshal(response.Result, &xfers); err != nil {
-		d.logPayload(response.Result)
-		return xfers, fmt.Errorf("json.Unmarshal(xfers): %w", err)
+		return nil, fmt.Errorf("json.Unmarshal(xfers): %w", err)
 	}
 
 	return xfers, nil
@@ -239,12 +229,11 @@ func (d *Deluge) GetXfersCompatContext(ctx context.Context) (map[string]*XferSta
 
 	response, err := d.Get(ctx, GetAllTorrents, []string{"", ""})
 	if err != nil {
-		return xfers, fmt.Errorf("get(GetAllTorrents): %w", err)
+		return nil, fmt.Errorf("get(GetAllTorrents): %w", err)
 	}
 
 	if err := json.Unmarshal(response.Result, &xfers); err != nil {
-		d.logPayload(response.Result)
-		return xfers, fmt.Errorf("json.Unmarshal(xfers): %w", err)
+		return nil, fmt.Errorf("json.Unmarshal(xfers): %w", err)
 	}
 
 	return xfers, nil
@@ -252,52 +241,37 @@ func (d *Deluge) GetXfersCompatContext(ctx context.Context) (map[string]*XferSta
 
 // Get a response from Deluge.
 func (d *Deluge) Get(ctx context.Context, method string, params interface{}) (*Response, error) {
-	var response Response
+	return d.req(ctx, method, params, true)
+}
 
-	if !d.cookie {
-		if err := d.Login(); err != nil {
-			return &response, err
-		}
-	}
-
+func (d *Deluge) req(ctx context.Context, method string, params interface{}, loop bool) (*Response, error) {
 	req, err := d.DelReq(ctx, method, params)
 	if err != nil {
-		return &response, fmt.Errorf("d.DelReq: %w", err)
+		return nil, fmt.Errorf("d.DelReq: %w", err)
 	}
 
 	resp, err := d.client.Do(req)
 	if err != nil {
-		return &response, fmt.Errorf("d.Do: %w", err)
+		return nil, fmt.Errorf("d.Do: %w", err)
 	}
 	defer resp.Body.Close()
 
+	var response Response
 	if err = json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		d.logPayload(response.Result)
-		return &response, fmt.Errorf("json.Unmarshal(response): %w", err)
+		return nil, fmt.Errorf("json.Unmarshal(response): %w", err)
 	}
 
 	if response.Error.Code != 0 {
-		d.cookie = false
+		if err := d.LoginContext(ctx); err != nil {
+			return nil, err
+		}
+
+		if loop {
+			return d.req(ctx, method, params, false)
+		}
+
 		return &response, fmt.Errorf("%w: %s", ErrDelugeError, response.Error.Message)
 	}
 
 	return &response, nil
-}
-
-// Log logs a debug message.
-func (d *Deluge) Log(msg string, fmt ...interface{}) {
-	if d.debug != nil {
-		d.debug(msg, fmt...)
-	}
-}
-
-// logPayload writes a json payload to output. Used for debugging API data.
-func (d *Deluge) logPayload(result json.RawMessage) {
-	out, err := result.MarshalJSON()
-
-	d.Log("Failed Payload:\n%s\n", string(out))
-
-	if err != nil {
-		d.Log("Payload Marshal Error: %v", err)
-	}
 }
