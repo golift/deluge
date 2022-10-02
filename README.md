@@ -22,9 +22,8 @@ func main() {
 	config := deluge.Config{
 		URL:      "http://127.0.0.1:8112",
 		Password: "superSe(re7",
-		Timeout:  time.Minute,
 	}
-	server, err := deluge.New(config)
+	server, err := deluge.New(context.TODO(), &config)
 	if err != nil {
 		log.Fatal(err)
 	}
