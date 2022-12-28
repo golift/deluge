@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	"strconv"
@@ -114,7 +113,7 @@ func (d *Deluge) LoginContext(ctx context.Context) error {
 	}
 	defer resp.Body.Close()
 
-	_, _ = io.Copy(ioutil.Discard, resp.Body) // must read body to avoid memory leak.
+	_, _ = io.Copy(io.Discard, resp.Body) // must read body to avoid memory leak.
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%w: %v[%v] (status: %v/%v)",
@@ -143,11 +142,12 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 	// Store each server info (so consumers can access them easily).
 	for _, server := range servers {
 		serverID, _ = server[0].(string)
-		d.Backends[serverID] = Backend{
-			ID:   serverID,
-			Addr: server[1].(string) + ":" + strconv.FormatFloat(server[2].(float64), 'f', 0, 64), //nolint:gomnd
-			Prot: server[3].(string),
-		}
+		backend := Backend{ID: serverID}
+		backend.Addr, _ = server[1].(string)
+		val, _ := server[2].(float64)
+		backend.Addr += ":" + strconv.FormatFloat(val, 'f', 0, 64) //nolint:gomnd,nolintlint
+		backend.Prot, _ = server[3].(string)
+		d.Backends[serverID] = backend
 	}
 
 	// Store the last server's version as "the version"
@@ -177,13 +177,18 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 }
 
 // DelReq is a small helper function that adds headers and marshals the json.
-func (d Deluge) DelReq(ctx context.Context, method string, params interface{}) (req *http.Request, err error) {
+func (d Deluge) DelReq(ctx context.Context, method string, params interface{}) (*http.Request, error) {
 	d.id++
 
 	paramMap := map[string]interface{}{"method": method, "id": d.id, "params": params}
-	if data, errr := json.Marshal(paramMap); errr != nil {
-		return req, fmt.Errorf("json.Marshal(params): %w", err)
-	} else if req, err = http.NewRequestWithContext(ctx, "POST", d.url, bytes.NewBuffer(data)); err == nil {
+
+	data, err := json.Marshal(paramMap)
+	if err != nil {
+		return nil, fmt.Errorf("json.Marshal(params): %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.url, bytes.NewBuffer(data))
+	if err == nil {
 		if d.auth != "" {
 			// In case Deluge is also behind HTTP auth.
 			req.Header.Add("Authorization", d.auth)
@@ -193,7 +198,7 @@ func (d Deluge) DelReq(ctx context.Context, method string, params interface{}) (
 		req.Header.Add("Accept", "application/json")
 	}
 
-	return
+	return req, fmt.Errorf("creating request: %w", err)
 }
 
 // GetXfers gets all the Transfers from Deluge.

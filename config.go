@@ -27,7 +27,7 @@ type Config struct {
 	Client   *http.Client `json:"-" toml:"-" xml:"-" yaml:"-"`
 }
 
-// Response from Deluge
+// Response from Deluge.
 type Response struct {
 	ID     int64           `json:"id"`
 	Result json.RawMessage `json:"result"`
