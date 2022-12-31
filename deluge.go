@@ -188,17 +188,18 @@ func (d Deluge) DelReq(ctx context.Context, method string, params interface{}) (
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.url, bytes.NewBuffer(data))
-	if err == nil {
-		if d.auth != "" {
-			// In case Deluge is also behind HTTP auth.
-			req.Header.Add("Authorization", d.auth)
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Add("Accept", "application/json")
+	if err != nil {
+		return req, fmt.Errorf("creating request: %w", err)
+	}
+	if d.auth != "" {
+		// In case Deluge is also behind HTTP auth.
+		req.Header.Add("Authorization", d.auth)
 	}
 
-	return req, fmt.Errorf("creating request: %w", err)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+
+	return req, nil
 }
 
 // GetXfers gets all the Transfers from Deluge.
