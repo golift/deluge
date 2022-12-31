@@ -3,6 +3,7 @@ package deluge
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 )
 
 // Deluge WebUI methods.
@@ -64,7 +65,7 @@ type XferStatus2 struct {
 	MaxUploadSpeed            float64 `json:"max_upload_speed"`
 	Message                   string  `json:"message"`
 	MoveOnCompletedPath       string  `json:"move_on_completed_path"`
-	MoveOnCompleted           bool    `json:"move_on_completed"`
+	MoveOnCompleted           Bool    `json:"move_on_completed"`
 	MoveCompletedPath         string  `json:"move_completed_path"`
 	MoveCompleted             bool    `json:"move_completed"`
 	NextAnnounce              float64 `json:"next_announce"`
@@ -356,14 +357,17 @@ type XferStatusCompat struct {
 }
 
 // Bool provides a container and unmarshalling for fields that may be
-// boolean or numbrs in the WebUI API.
+// boolean or numbrs or strings in the WebUI API.
 type Bool bool
 
 // UnmarshalJSON parses fields that may be numbers or booleans.
 // https://stackoverflow.com/questions/30856454/how-to-unmarshall-both-0-and-false-as-bool-from-json/56832346#56832346
 func (bit *Bool) UnmarshalJSON(b []byte) error {
-	txt := string(b)
-	*bit = Bool(txt == "1" || txt == "true")
+	txt := strings.Trim(string(b), `"`)
+	*bit = Bool(strings.EqualFold(txt, "1") ||
+		strings.EqualFold(txt, "true") ||
+		strings.EqualFold(txt, "yes") ||
+		strings.EqualFold(txt, "active"))
 
 	return nil
 }
