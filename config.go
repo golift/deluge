@@ -357,7 +357,7 @@ type XferStatusCompat struct {
 }
 
 // Bool provides a container and unmarshalling for fields that may be
-// boolean or numbrs or strings in the WebUI API.
+// boolean or numbers or strings in the WebUI API.
 type Bool bool
 
 // UnmarshalJSON parses fields that may be numbers or booleans.
