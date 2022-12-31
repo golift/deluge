@@ -191,6 +191,7 @@ func (d Deluge) DelReq(ctx context.Context, method string, params interface{}) (
 	if err != nil {
 		return req, fmt.Errorf("creating request: %w", err)
 	}
+
 	if d.auth != "" {
 		// In case Deluge is also behind HTTP auth.
 		req.Header.Add("Authorization", d.auth)
