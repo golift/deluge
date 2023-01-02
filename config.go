@@ -206,7 +206,7 @@ type XferStatus struct {
 	NumPieces           int64         `json:"num_pieces"`
 	TrackerStatus       string        `json:"tracker_status"`
 	TotalSeeds          int64         `json:"total_seeds"`
-	MoveOnCompleted     bool          `json:"move_on_completed"`
+	MoveOnCompleted     Bool          `json:"move_on_completed"`
 	NextAnnounce        int64         `json:"next_announce"`
 	StopAtRatio         bool          `json:"stop_at_ratio"`
 	FileProgress        []float64     `json:"file_progress"`
@@ -261,7 +261,7 @@ type XferStatusCompat struct {
 	MaxUploadSpeed            float64     `json:"max_upload_speed"`
 	Message                   string      `json:"message"`
 	MoveOnCompletedPath       string      `json:"move_on_completed_path"`
-	MoveOnCompleted           bool        `json:"move_on_completed"`
+	MoveOnCompleted           Bool        `json:"move_on_completed"`
 	MoveCompletedPath         string      `json:"move_completed_path"`
 	MoveCompleted             bool        `json:"move_completed"`
 	NextAnnounce              float64     `json:"next_announce"`
