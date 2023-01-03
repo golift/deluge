@@ -67,7 +67,7 @@ type XferStatus2 struct {
 	MoveOnCompletedPath       string  `json:"move_on_completed_path"`
 	MoveOnCompleted           Bool    `json:"move_on_completed"`
 	MoveCompletedPath         string  `json:"move_completed_path"`
-	MoveCompleted             bool    `json:"move_completed"`
+	MoveCompleted             Bool    `json:"move_completed"`
 	NextAnnounce              float64 `json:"next_announce"`
 	NumPeers                  int64   `json:"num_peers"`
 	NumSeeds                  int64   `json:"num_seeds"`
@@ -210,7 +210,7 @@ type XferStatus struct {
 	NextAnnounce        int64         `json:"next_announce"`
 	StopAtRatio         bool          `json:"stop_at_ratio"`
 	FileProgress        []float64     `json:"file_progress"`
-	MoveCompleted       bool          `json:"move_completed"`
+	MoveCompleted       Bool          `json:"move_completed"`
 	PieceLength         int64         `json:"piece_length"`
 	AllTimeDownload     int64         `json:"all_time_download"`
 	MoveOnCompletedPath string        `json:"move_on_completed_path"`
@@ -263,7 +263,7 @@ type XferStatusCompat struct {
 	MoveOnCompletedPath       string      `json:"move_on_completed_path"`
 	MoveOnCompleted           Bool        `json:"move_on_completed"`
 	MoveCompletedPath         string      `json:"move_completed_path"`
-	MoveCompleted             bool        `json:"move_completed"`
+	MoveCompleted             Bool        `json:"move_completed"`
 	NextAnnounce              float64     `json:"next_announce"`
 	NumPeers                  int64       `json:"num_peers"`
 	NumSeeds                  int64       `json:"num_seeds"`
