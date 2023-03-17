@@ -2,4 +2,4 @@ module golift.io/deluge
 
 go 1.17
 
-require golang.org/x/net v0.7.0
+require golang.org/x/net v0.8.0
