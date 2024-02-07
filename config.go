@@ -15,7 +15,9 @@ const (
 	GetTorrentStat = "core.get_torrent_status"
 	GetAllTorrents = "core.get_torrents_status"
 	HostStatus     = "web.get_host_status"
-	GeHosts        = "web.get_hosts"
+	GetHosts       = "web.get_hosts"
+	GetLabels      = "label.get_labels"
+	SetLabel       = "label.set_torrent"
 )
 
 // Config is the data needed to poll Deluge.

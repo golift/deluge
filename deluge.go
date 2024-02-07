@@ -125,7 +125,7 @@ func (d *Deluge) LoginContext(ctx context.Context) error {
 
 // setVersion digs into the first server in the web UI to find the version.
 func (d *Deluge) setVersion(ctx context.Context) error {
-	response, err := d.Get(ctx, GeHosts, []string{})
+	response, err := d.Get(ctx, GetHosts, []string{})
 	if err != nil {
 		return err
 	}
@@ -244,6 +244,42 @@ func (d *Deluge) GetXfersCompatContext(ctx context.Context) (map[string]*XferSta
 	}
 
 	return xfers, nil
+}
+
+// GetLabels gets all the labels from Deluge.
+func (d *Deluge) GetLabels() ([]string, error) {
+	return d.GetLabelsContext(context.Background())
+}
+
+// GetLabelsContext gets all the labels from Deluge.
+func (d *Deluge) GetLabelsContext(ctx context.Context) ([]string, error) {
+	labels := []string{}
+
+	response, err := d.Get(ctx, GetLabels, []string{})
+	if err != nil {
+		return nil, fmt.Errorf("get(GetLabels): %w", err)
+	}
+
+	if err := json.Unmarshal(response.Result, &labels); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal(labels): %w", err)
+	}
+
+	return labels, nil
+}
+
+// SetLabel sets a label on a torrent.
+func (d *Deluge) SetLabel(torrentID string, label string) error {
+	return d.SetLabelContext(context.Background(), torrentID, label)
+}
+
+// SetLabelContext sets a label on a torrent.
+func (d *Deluge) SetLabelContext(ctx context.Context, torrentID string, label string) error {
+	_, err := d.Get(ctx, SetLabel, []string{torrentID, label})
+	if err != nil {
+		return fmt.Errorf("get(SetLabel): %w", err)
+	}
+
+	return nil
 }
 
 // Get a response from Deluge.
