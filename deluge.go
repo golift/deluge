@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,9 +18,9 @@ import (
 
 // Custom errors.
 var (
-	ErrInvalidVersion = fmt.Errorf("invalid data returned while checking version")
-	ErrDelugeError    = fmt.Errorf("deluge error")
-	ErrAuthFailed     = fmt.Errorf("authentication failed")
+	ErrInvalidVersion = errors.New("invalid data returned while checking version")
+	ErrDelugeError    = errors.New("deluge error")
+	ErrAuthFailed     = errors.New("authentication failed")
 )
 
 // Deluge is what you get for providing a password.
@@ -86,7 +87,8 @@ func newConfig(ctx context.Context, config *Config, login bool) (*Deluge, error)
 	}
 
 	if deluge.Version = config.Version; deluge.Version == "" {
-		if err = deluge.setVersion(ctx); err != nil {
+		err = deluge.setVersion(ctx)
+		if err != nil {
 			return deluge, err
 		}
 	}
@@ -111,7 +113,7 @@ func (d *Deluge) LoginContext(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("d.Do(req): %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	_, _ = io.Copy(io.Discard, resp.Body) // must read body to avoid memory leak.
 
@@ -121,6 +123,83 @@ func (d *Deluge) LoginContext(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// DelReq is a small helper function that adds headers and marshals the json.
+func (d *Deluge) DelReq(ctx context.Context, method string, params interface{}) (*http.Request, error) {
+	d.id++
+
+	paramMap := map[string]interface{}{"method": method, "id": d.id, "params": params}
+
+	data, err := json.Marshal(paramMap)
+	if err != nil {
+		return nil, fmt.Errorf("json.Marshal(params): %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.url, bytes.NewBuffer(data))
+	if err != nil {
+		return req, fmt.Errorf("creating request: %w", err)
+	}
+
+	if d.auth != "" {
+		// In case Deluge is also behind HTTP auth.
+		req.Header.Add("Authorization", d.auth)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+
+	return req, nil
+}
+
+// GetXfers gets all the Transfers from Deluge.
+func (d *Deluge) GetXfers() (map[string]*XferStatus, error) {
+	return d.GetXfersContext(context.Background())
+}
+
+// GetXfersContext gets all the Transfers from Deluge.
+func (d *Deluge) GetXfersContext(ctx context.Context) (map[string]*XferStatus, error) {
+	xfers := make(map[string]*XferStatus)
+
+	response, err := d.Get(ctx, GetAllTorrents, []string{"", ""})
+	if err != nil {
+		return nil, fmt.Errorf("get(GetAllTorrents): %w", err)
+	}
+
+	if err := json.Unmarshal(response.Result, &xfers); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal(xfers): %w", err)
+	}
+
+	return xfers, nil
+}
+
+// GetXfersCompat gets all the Transfers from Deluge 1.x or 2.x.
+// Depend on what you're actually trying to do, this is likely the best method to use.
+// This will return a combined struct hat has data for Deluge 1 and Deluge 2.
+// All of the data for either version will be made available with this method.
+func (d *Deluge) GetXfersCompat() (map[string]*XferStatusCompat, error) {
+	return d.GetXfersCompatContext(context.Background())
+}
+
+// GetXfersCompatContext gets all the Transfers from Deluge 1.x or 2.x.
+func (d *Deluge) GetXfersCompatContext(ctx context.Context) (map[string]*XferStatusCompat, error) {
+	xfers := make(map[string]*XferStatusCompat)
+
+	response, err := d.Get(ctx, GetAllTorrents, []string{"", ""})
+	if err != nil {
+		return nil, fmt.Errorf("get(GetAllTorrents): %w", err)
+	}
+
+	if err := json.Unmarshal(response.Result, &xfers); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal(xfers): %w", err)
+	}
+
+	return xfers, nil
+}
+
+// Get a response from Deluge.
+func (d *Deluge) Get(ctx context.Context, method string, params interface{}) (*Response, error) {
+	return d.req(ctx, method, params, true)
 }
 
 // setVersion digs into the first server in the web UI to find the version.
@@ -157,7 +236,8 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 	}
 
 	server := make([]interface{}, 0)
-	if err = json.Unmarshal(response.Result, &server); err != nil {
+	err = json.Unmarshal(response.Result, &server)
+	if err != nil {
 		return fmt.Errorf("json.Unmarshal(rawResult2): %w", err)
 	}
 
@@ -176,81 +256,6 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 	return nil
 }
 
-// DelReq is a small helper function that adds headers and marshals the json.
-func (d Deluge) DelReq(ctx context.Context, method string, params interface{}) (*http.Request, error) {
-	d.id++
-
-	paramMap := map[string]interface{}{"method": method, "id": d.id, "params": params}
-
-	data, err := json.Marshal(paramMap)
-	if err != nil {
-		return nil, fmt.Errorf("json.Marshal(params): %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.url, bytes.NewBuffer(data))
-	if err != nil {
-		return req, fmt.Errorf("creating request: %w", err)
-	}
-
-	if d.auth != "" {
-		// In case Deluge is also behind HTTP auth.
-		req.Header.Add("Authorization", d.auth)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Add("Accept", "application/json")
-
-	return req, nil
-}
-
-// GetXfers gets all the Transfers from Deluge.
-func (d *Deluge) GetXfers() (map[string]*XferStatus, error) {
-	return d.GetXfersContext(context.Background())
-}
-
-func (d *Deluge) GetXfersContext(ctx context.Context) (map[string]*XferStatus, error) {
-	xfers := make(map[string]*XferStatus)
-
-	response, err := d.Get(ctx, GetAllTorrents, []string{"", ""})
-	if err != nil {
-		return nil, fmt.Errorf("get(GetAllTorrents): %w", err)
-	}
-
-	if err := json.Unmarshal(response.Result, &xfers); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal(xfers): %w", err)
-	}
-
-	return xfers, nil
-}
-
-// GetXfersCompat gets all the Transfers from Deluge 1.x or 2.x.
-// Depend on what you're actually trying to do, this is likely the best method to use.
-// This will return a combined struct hat has data for Deluge 1 and Deluge 2.
-// All of the data for either version will be made available with this method.
-func (d *Deluge) GetXfersCompat() (map[string]*XferStatusCompat, error) {
-	return d.GetXfersCompatContext(context.Background())
-}
-
-func (d *Deluge) GetXfersCompatContext(ctx context.Context) (map[string]*XferStatusCompat, error) {
-	xfers := make(map[string]*XferStatusCompat)
-
-	response, err := d.Get(ctx, GetAllTorrents, []string{"", ""})
-	if err != nil {
-		return nil, fmt.Errorf("get(GetAllTorrents): %w", err)
-	}
-
-	if err := json.Unmarshal(response.Result, &xfers); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal(xfers): %w", err)
-	}
-
-	return xfers, nil
-}
-
-// Get a response from Deluge.
-func (d *Deluge) Get(ctx context.Context, method string, params interface{}) (*Response, error) {
-	return d.req(ctx, method, params, true)
-}
-
 func (d *Deluge) req(ctx context.Context, method string, params interface{}, loop bool) (*Response, error) {
 	req, err := d.DelReq(ctx, method, params)
 	if err != nil {
@@ -261,15 +266,17 @@ func (d *Deluge) req(ctx context.Context, method string, params interface{}, loo
 	if err != nil {
 		return nil, fmt.Errorf("d.Do: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var response Response
-	if err = json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
 		return nil, fmt.Errorf("json.Unmarshal(response): %w", err)
 	}
 
 	if response.Error.Code != 0 {
-		if err := d.LoginContext(ctx); err != nil {
+		err := d.LoginContext(ctx)
+		if err != nil {
 			return nil, err
 		}
 
