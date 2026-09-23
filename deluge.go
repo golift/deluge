@@ -30,7 +30,7 @@ type Deluge struct {
 	password string
 	url      string
 	auth     string
-	id       int64
+	id       atomic.Int64
 	client   *http.Client
 	Version  string             // Currently unused, for display purposes only.
 	Backends map[string]Backend // Currently unused, for display purposes only.
@@ -128,8 +128,8 @@ func (d *Deluge) LoginContext(ctx context.Context) error {
 }
 
 // DelReq is a small helper function that adds headers and marshals the json.
-func (d *Deluge) DelReq(ctx context.Context, method string, params interface{}) (*http.Request, error) {
-	paramMap := map[string]interface{}{"method": method, "id": d.nextID(), "params": params}
+func (d *Deluge) DelReq(ctx context.Context, method string, params any) (*http.Request, error) {
+	paramMap := map[string]any{"method": method, "id": d.nextID(), "params": params}
 
 	data, err := json.Marshal(paramMap)
 	if err != nil {
@@ -200,12 +200,12 @@ func (d *Deluge) GetXfersCompatContext(ctx context.Context) (map[string]*XferSta
 }
 
 // Get a response from Deluge.
-func (d *Deluge) Get(ctx context.Context, method string, params interface{}) (*Response, error) {
+func (d *Deluge) Get(ctx context.Context, method string, params any) (*Response, error) {
 	return d.req(ctx, method, params, true)
 }
 
 func (d *Deluge) nextID() int64 {
-	return atomic.AddInt64(&d.id, 1)
+	return d.id.Add(1)
 }
 
 // setVersion digs into the first server in the web UI to find the version.
@@ -217,7 +217,7 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 
 	// This method returns a "mixed list" which requires an interface.
 	// Deluge devs apparently hate Go. :(
-	servers := make([][]interface{}, 0)
+	servers := make([][]any, 0)
 
 	err = json.Unmarshal(response.Result, &servers)
 	if err != nil {
@@ -243,7 +243,7 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 		return err
 	}
 
-	server := make([]interface{}, 0)
+	server := make([]any, 0)
 
 	err = json.Unmarshal(response.Result, &server)
 	if err != nil {
@@ -265,7 +265,7 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 	return nil
 }
 
-func (d *Deluge) req(ctx context.Context, method string, params interface{}, loop bool) (*Response, error) {
+func (d *Deluge) req(ctx context.Context, method string, params any, loop bool) (*Response, error) {
 	req, err := d.DelReq(ctx, method, params)
 	if err != nil {
 		return nil, fmt.Errorf("d.DelReq: %w", err)
