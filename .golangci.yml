@@ -1,19 +1,20 @@
+version: "2"
 linters:
-  enable-all: true
+  default: all
   disable:
-    # deprecated
-    - maligned
-    - scopelint
-    - interfacer
-    - golint
-    - exhaustivestruct
-    - nosnakecase
-    - structcheck
-    - deadcode
-    - varcheck
-    - ifshort
-    # unused
-    - exhaustruct
-    - tagliatelle
-run:
-  timeout: 3m
+    - nlreturn # wsl_v5 is good enough.
+    - wsl # deprecated.
+    - exhaustruct # deprecated.
+    - exhaustruct_v5 # callers fill Config and the client a field at a time.
+    - gomodguard # deprecated.
+    - depguard # flags this module and golang.org/x/net.
+    - tagliatelle # Deluge JSON is snake_case.
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
