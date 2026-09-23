@@ -99,24 +99,24 @@ type XferStatus2 struct {
 	Tracker                   string  `json:"tracker"`
 	TrackerHost               string  `json:"tracker_host"`
 	Trackers                  []struct {
-		NextAnnounce     interface{}   `json:"next_announce"`
-		MinAnnounce      interface{}   `json:"min_announce"`
-		Endpoints        []interface{} `json:"endpoints"`
-		Updating         bool          `json:"updating"`
-		StartSent        bool          `json:"start_sent"`
-		CompleteSent     bool          `json:"complete_sent"`
-		SendStats        bool          `json:"send_stats"`
-		Verified         bool          `json:"verified"`
-		Tier             int           `json:"tier"`
-		FailLimit        int           `json:"fail_limit"`
-		Source           int           `json:"source"`
-		ScrapeIncomplete float64       `json:"scrape_incomplete"`
-		ScrapeComplete   float64       `json:"scrape_complete"`
-		ScrapeDownloaded float64       `json:"scrape_downloaded"`
-		Fails            int64         `json:"fails"`
-		URL              string        `json:"url"`
-		Trackerid        string        `json:"trackerid"`
-		Message          string        `json:"message"`
+		NextAnnounce     any     `json:"next_announce"`
+		MinAnnounce      any     `json:"min_announce"`
+		Endpoints        []any   `json:"endpoints"`
+		Updating         bool    `json:"updating"`
+		StartSent        bool    `json:"start_sent"`
+		CompleteSent     bool    `json:"complete_sent"`
+		SendStats        bool    `json:"send_stats"`
+		Verified         bool    `json:"verified"`
+		Tier             int     `json:"tier"`
+		FailLimit        int     `json:"fail_limit"`
+		Source           int     `json:"source"`
+		ScrapeIncomplete float64 `json:"scrape_incomplete"`
+		ScrapeComplete   float64 `json:"scrape_complete"`
+		ScrapeDownloaded float64 `json:"scrape_downloaded"`
+		Fails            int64   `json:"fails"`
+		URL              string  `json:"url"`
+		Trackerid        string  `json:"trackerid"`
+		Message          string  `json:"message"`
 		LastError        struct {
 			Value    int    `json:"value"`
 			Category string `json:"category"`
@@ -145,19 +145,19 @@ type XferStatus2 struct {
 		Size   int64  `json:"size"`
 		Offset int64  `json:"offset"`
 	} `json:"orig_files"`
-	IsSeed            bool          `json:"is_seed"`
-	Peers             []interface{} `json:"peers"`
-	Queue             int           `json:"queue"`
-	Ratio             float64       `json:"ratio"`
-	CompletedTime     float64       `json:"completed_time"`
-	LastSeenComplete  float64       `json:"last_seen_complete"`
-	Name              string        `json:"name"`
-	Pieces            interface{}   `json:"pieces"`
-	SeedMode          bool          `json:"seed_mode"`
-	SuperSeeding      bool          `json:"super_seeding"`
-	TimeSinceDownload float64       `json:"time_since_download"`
-	TimeSinceUpload   float64       `json:"time_since_upload"`
-	TimeSinceTransfer float64       `json:"time_since_transfer"`
+	IsSeed            bool    `json:"is_seed"`
+	Peers             []any   `json:"peers"`
+	Queue             int     `json:"queue"`
+	Ratio             float64 `json:"ratio"`
+	CompletedTime     float64 `json:"completed_time"`
+	LastSeenComplete  float64 `json:"last_seen_complete"`
+	Name              string  `json:"name"`
+	Pieces            any     `json:"pieces"`
+	SeedMode          bool    `json:"seed_mode"`
+	SuperSeeding      bool    `json:"super_seeding"`
+	TimeSinceDownload float64 `json:"time_since_download"`
+	TimeSinceUpload   float64 `json:"time_since_upload"`
+	TimeSinceTransfer float64 `json:"time_since_transfer"`
 }
 
 // XferStatus is the Deluge 1.0 WebUI API layout for Active Transfers.
@@ -203,34 +203,34 @@ type XferStatus struct {
 		Offset int64  `json:"offset"`
 		Size   int64  `json:"size"`
 	} `json:"files"`
-	TotalDone           int64         `json:"total_done"`
-	NumPieces           int64         `json:"num_pieces"`
-	TrackerStatus       string        `json:"tracker_status"`
-	TotalSeeds          int64         `json:"total_seeds"`
-	MoveOnCompleted     Bool          `json:"move_on_completed"`
-	NextAnnounce        int64         `json:"next_announce"`
-	StopAtRatio         bool          `json:"stop_at_ratio"`
-	FileProgress        []float64     `json:"file_progress"`
-	MoveCompleted       Bool          `json:"move_completed"`
-	PieceLength         int64         `json:"piece_length"`
-	AllTimeDownload     int64         `json:"all_time_download"`
-	MoveOnCompletedPath string        `json:"move_on_completed_path"`
-	NumSeeds            int64         `json:"num_seeds"`
-	Peers               []interface{} `json:"peers"`
-	Name                string        `json:"name"`
+	TotalDone           int64     `json:"total_done"`
+	NumPieces           int64     `json:"num_pieces"`
+	TrackerStatus       string    `json:"tracker_status"`
+	TotalSeeds          int64     `json:"total_seeds"`
+	MoveOnCompleted     Bool      `json:"move_on_completed"`
+	NextAnnounce        int64     `json:"next_announce"`
+	StopAtRatio         bool      `json:"stop_at_ratio"`
+	FileProgress        []float64 `json:"file_progress"`
+	MoveCompleted       Bool      `json:"move_completed"`
+	PieceLength         int64     `json:"piece_length"`
+	AllTimeDownload     int64     `json:"all_time_download"`
+	MoveOnCompletedPath string    `json:"move_on_completed_path"`
+	NumSeeds            int64     `json:"num_seeds"`
+	Peers               []any     `json:"peers"`
+	Name                string    `json:"name"`
 	Trackers            []struct {
-		MinAnnounce  interface{} `json:"min_announce"`
-		NextAnnounce interface{} `json:"next_announce"`
-		SendStats    bool        `json:"send_stats"`
-		Verified     bool        `json:"verified"`
-		CompleteSent bool        `json:"complete_sent"`
-		StartSent    bool        `json:"start_sent"`
-		Updating     bool        `json:"updating"`
-		Fails        int64       `json:"fails"`
-		FailLimit    int64       `json:"fail_limit"`
-		Source       int64       `json:"source"`
-		Tier         int64       `json:"tier"`
-		URL          string      `json:"url"`
+		MinAnnounce  any    `json:"min_announce"`
+		NextAnnounce any    `json:"next_announce"`
+		SendStats    bool   `json:"send_stats"`
+		Verified     bool   `json:"verified"`
+		CompleteSent bool   `json:"complete_sent"`
+		StartSent    bool   `json:"start_sent"`
+		Updating     bool   `json:"updating"`
+		Fails        int64  `json:"fails"`
+		FailLimit    int64  `json:"fail_limit"`
+		Source       int64  `json:"source"`
+		Tier         int64  `json:"tier"`
+		URL          string `json:"url"`
 	} `json:"trackers"`
 	TotalPayloadDownload int64       `json:"total_payload_download"`
 	IsAutoManaged        bool        `json:"is_auto_managed"`
@@ -317,39 +317,39 @@ type XferStatusCompat struct {
 		Size   int64  `json:"size"`
 		Offset int64  `json:"offset"`
 	} `json:"orig_files"`
-	IsSeed            bool          `json:"is_seed"`
-	Peers             []interface{} `json:"peers"`
-	Queue             int64         `json:"queue"`
-	Ratio             float64       `json:"ratio"`
-	CompletedTime     float64       `json:"completed_time"`
-	LastSeenComplete  float64       `json:"last_seen_complete"`
-	Name              string        `json:"name"`
-	Pieces            interface{}   `json:"pieces"`
-	SeedMode          bool          `json:"seed_mode"`
-	SuperSeeding      bool          `json:"super_seeding"`
-	TimeSinceDownload float64       `json:"time_since_download"`
-	TimeSinceUpload   float64       `json:"time_since_upload"`
-	TimeSinceTransfer float64       `json:"time_since_transfer"`
-	Label             string        `json:"label"`
+	IsSeed            bool    `json:"is_seed"`
+	Peers             []any   `json:"peers"`
+	Queue             int64   `json:"queue"`
+	Ratio             float64 `json:"ratio"`
+	CompletedTime     float64 `json:"completed_time"`
+	LastSeenComplete  float64 `json:"last_seen_complete"`
+	Name              string  `json:"name"`
+	Pieces            any     `json:"pieces"`
+	SeedMode          bool    `json:"seed_mode"`
+	SuperSeeding      bool    `json:"super_seeding"`
+	TimeSinceDownload float64 `json:"time_since_download"`
+	TimeSinceUpload   float64 `json:"time_since_upload"`
+	TimeSinceTransfer float64 `json:"time_since_transfer"`
+	Label             string  `json:"label"`
 	Trackers          []struct {
-		NextAnnounce     interface{}   `json:"next_announce"`
-		MinAnnounce      interface{}   `json:"min_announce"`
-		Endpoints        []interface{} `json:"endpoints"`
-		Updating         bool          `json:"updating"`
-		CompleteSent     bool          `json:"complete_sent"`
-		SendStats        bool          `json:"send_stats"`
-		StartSent        bool          `json:"start_sent"`
-		Verified         bool          `json:"verified"`
-		FailLimit        int64         `json:"fail_limit"`
-		Fails            int64         `json:"fails"`
-		Source           float64       `json:"source"`
-		Tier             float64       `json:"tier"`
-		ScrapeIncomplete float64       `json:"scrape_incomplete"`
-		ScrapeComplete   float64       `json:"scrape_complete"`
-		ScrapeDownloaded float64       `json:"scrape_downloaded"`
-		URL              string        `json:"url"`
-		Trackerid        string        `json:"trackerid"`
-		Message          string        `json:"message"`
+		NextAnnounce     any     `json:"next_announce"`
+		MinAnnounce      any     `json:"min_announce"`
+		Endpoints        []any   `json:"endpoints"`
+		Updating         bool    `json:"updating"`
+		CompleteSent     bool    `json:"complete_sent"`
+		SendStats        bool    `json:"send_stats"`
+		StartSent        bool    `json:"start_sent"`
+		Verified         bool    `json:"verified"`
+		FailLimit        int64   `json:"fail_limit"`
+		Fails            int64   `json:"fails"`
+		Source           float64 `json:"source"`
+		Tier             float64 `json:"tier"`
+		ScrapeIncomplete float64 `json:"scrape_incomplete"`
+		ScrapeComplete   float64 `json:"scrape_complete"`
+		ScrapeDownloaded float64 `json:"scrape_downloaded"`
+		URL              string  `json:"url"`
+		Trackerid        string  `json:"trackerid"`
+		Message          string  `json:"message"`
 		LastError        struct {
 			Value    int    `json:"value"`
 			Category string `json:"category"`
