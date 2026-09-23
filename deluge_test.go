@@ -8,16 +8,19 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"golift.io/deluge"
 )
 
+const exampleURL = "http://deluge.example/json"
+
 func TestNewNoAuthURLAndBasicAuth(t *testing.T) {
 	t.Parallel()
 
 	client, err := deluge.NewNoAuth(&deluge.Config{
-		URL:      "http://deluge.example/json",
+		URL:      exampleURL,
 		HTTPUser: "alice",
 		HTTPPass: "secret",
 	})
@@ -30,7 +33,7 @@ func TestNewNoAuthURLAndBasicAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if req.URL.String() != "http://deluge.example/json" {
+	if req.URL.String() != exampleURL {
 		t.Fatalf("url %s", req.URL)
 	}
 
@@ -42,6 +45,39 @@ func TestNewNoAuthURLAndBasicAuth(t *testing.T) {
 	if req.Header.Get("Content-Type") != "application/json" {
 		t.Fatalf("content-type %q", req.Header.Get("Content-Type"))
 	}
+
+	if got := requestID(t, req); got != 1 {
+		t.Fatalf("id %d", got)
+	}
+
+	req, err = client.DelReq(context.Background(), deluge.GetAllTorrents, []string{"", ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := requestID(t, req); got != 2 {
+		t.Fatalf("id %d", got)
+	}
+}
+
+func requestID(t *testing.T, req *http.Request) int64 {
+	t.Helper()
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var call struct {
+		ID int64 `json:"id"`
+	}
+
+	err = json.Unmarshal(body, &call)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return call.ID
 }
 
 func TestNewLoginAndVersion(t *testing.T) {
@@ -127,4 +163,70 @@ func TestNewAuthFailed(t *testing.T) {
 	if !errors.Is(err, deluge.ErrAuthFailed) {
 		t.Fatalf("err %v", err)
 	}
+}
+
+func TestDelReqConcurrentIDs(t *testing.T) {
+	t.Parallel()
+
+	client, err := deluge.NewNoAuth(&deluge.Config{URL: exampleURL})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const calls = 32
+
+	var wait sync.WaitGroup
+
+	ids := make([]int64, calls)
+	wait.Add(calls)
+
+	for index := range ids {
+		go func(index int) {
+			defer wait.Done()
+
+			ids[index] = delReqID(t, client)
+		}(index)
+	}
+
+	wait.Wait()
+
+	seen := make(map[int64]struct{}, calls)
+	for _, id := range ids {
+		if _, ok := seen[id]; ok || id == 0 {
+			t.Fatalf("id %d in %v", id, ids)
+		}
+
+		seen[id] = struct{}{}
+	}
+}
+
+func delReqID(t *testing.T, client *deluge.Deluge) int64 {
+	t.Helper()
+
+	req, err := client.DelReq(context.Background(), deluge.AuthLogin, []string{"x"})
+	if err != nil {
+		t.Errorf("DelReq: %v", err)
+
+		return 0
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		t.Errorf("read body: %v", err)
+
+		return 0
+	}
+
+	var call struct {
+		ID int64 `json:"id"`
+	}
+
+	err = json.Unmarshal(body, &call)
+	if err != nil {
+		t.Errorf("json: %v", err)
+
+		return 0
+	}
+
+	return call.ID
 }

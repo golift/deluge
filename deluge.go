@@ -12,6 +12,7 @@ import (
 	"net/http/cookiejar"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"golang.org/x/net/publicsuffix"
 )
@@ -29,7 +30,7 @@ type Deluge struct {
 	password string
 	url      string
 	auth     string
-	id       int
+	id       int64
 	client   *http.Client
 	Version  string             // Currently unused, for display purposes only.
 	Backends map[string]Backend // Currently unused, for display purposes only.
@@ -128,9 +129,7 @@ func (d *Deluge) LoginContext(ctx context.Context) error {
 
 // DelReq is a small helper function that adds headers and marshals the json.
 func (d *Deluge) DelReq(ctx context.Context, method string, params interface{}) (*http.Request, error) {
-	d.id++
-
-	paramMap := map[string]interface{}{"method": method, "id": d.id, "params": params}
+	paramMap := map[string]interface{}{"method": method, "id": d.nextID(), "params": params}
 
 	data, err := json.Marshal(paramMap)
 	if err != nil {
@@ -203,6 +202,10 @@ func (d *Deluge) GetXfersCompatContext(ctx context.Context) (map[string]*XferSta
 // Get a response from Deluge.
 func (d *Deluge) Get(ctx context.Context, method string, params interface{}) (*Response, error) {
 	return d.req(ctx, method, params, true)
+}
+
+func (d *Deluge) nextID() int64 {
+	return atomic.AddInt64(&d.id, 1)
 }
 
 // setVersion digs into the first server in the web UI to find the version.
