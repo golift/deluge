@@ -47,41 +47,7 @@ func TestNewNoAuthURLAndBasicAuth(t *testing.T) {
 func TestNewLoginAndVersion(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		if req.URL.Path != "/json" {
-			http.Error(resp, "bad path", http.StatusNotFound)
-
-			return
-		}
-
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			http.Error(resp, err.Error(), http.StatusInternalServerError)
-
-			return
-		}
-
-		var call struct {
-			Method string `json:"method"`
-		}
-		err = json.Unmarshal(body, &call)
-		if err != nil {
-			http.Error(resp, err.Error(), http.StatusBadRequest)
-
-			return
-		}
-
-		switch call.Method {
-		case deluge.AuthLogin:
-			_, _ = resp.Write([]byte(`{"id":1,"result":true}`))
-		case deluge.GeHosts:
-			_, _ = resp.Write([]byte(`{"id":2,"result":[["abc","127.0.0.1",58846,"http"]]}`))
-		case deluge.HostStatus:
-			_, _ = resp.Write([]byte(`{"id":3,"result":["Online","127.0.0.1:58846","2.1.1"]}`))
-		default:
-			http.Error(resp, call.Method, http.StatusBadRequest)
-		}
-	}))
+	srv := httptest.NewServer(fakeDeluge())
 	t.Cleanup(srv.Close)
 
 	client, err := deluge.New(context.Background(), &deluge.Config{
@@ -103,6 +69,49 @@ func TestNewLoginAndVersion(t *testing.T) {
 
 	if backend.Addr != "127.0.0.1:58846" || backend.Prot != "http" {
 		t.Fatalf("backend %#v", backend)
+	}
+}
+
+func fakeDeluge() http.Handler {
+	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/json" {
+			http.Error(resp, "bad path", http.StatusNotFound)
+
+			return
+		}
+
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			http.Error(resp, err.Error(), http.StatusInternalServerError)
+
+			return
+		}
+
+		var call struct {
+			Method string `json:"method"`
+		}
+
+		err = json.Unmarshal(body, &call)
+		if err != nil {
+			http.Error(resp, err.Error(), http.StatusBadRequest)
+
+			return
+		}
+
+		writeDelugeMethod(resp, call.Method)
+	})
+}
+
+func writeDelugeMethod(resp http.ResponseWriter, method string) {
+	switch method {
+	case deluge.AuthLogin:
+		_, _ = resp.Write([]byte(`{"id":1,"result":true}`))
+	case deluge.GeHosts:
+		_, _ = resp.Write([]byte(`{"id":2,"result":[["abc","127.0.0.1",58846,"http"]]}`))
+	case deluge.HostStatus:
+		_, _ = resp.Write([]byte(`{"id":3,"result":["Online","127.0.0.1:58846","2.1.1"]}`))
+	default:
+		http.Error(resp, method, http.StatusBadRequest)
 	}
 }
 

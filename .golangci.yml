@@ -2,42 +2,13 @@ version: "2"
 linters:
   default: all
   disable:
-    - nlreturn
-    - exhaustruct
-    - exhaustruct_v5
-    - depguard
-    - wsl
-    - wsl_v5
-    - goconst
-    - gomodguard
-    - noinlineerr
-    - nonamedreturns
-    - tagliatelle
-  exclusions:
-    rules:
-      - linters:
-          - funlen
-          - goconst
-          - wsl
-          - errcheck
-          - err113
-          - testpackage
-          - cyclop
-        path: .+_test.go
-  settings:
-    gosec:
-      excludes:
-        - G304
-        - G115
-        - G705
-    gocritic:
-      enable-all: true
-      disabled-checks:
-        - whyNoLint
-        - commentedOutCode
-      settings:
-        unnamedResult:
-          checkExported: true
+    - nlreturn # wsl_v5 is good enough.
+    - wsl # deprecated.
+    - exhaustruct # deprecated.
+    - exhaustruct_v5 # callers fill Config and the client a field at a time.
+    - gomodguard # deprecated.
+    - depguard # flags this module and golang.org/x/net.
+    - tagliatelle # Deluge JSON is snake_case.
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

@@ -82,7 +82,8 @@ func newConfig(ctx context.Context, config *Config, login bool) (*Deluge, error)
 		return deluge, nil
 	}
 
-	if err := deluge.LoginContext(ctx); err != nil {
+	err = deluge.LoginContext(ctx)
+	if err != nil {
 		return deluge, err
 	}
 
@@ -166,7 +167,8 @@ func (d *Deluge) GetXfersContext(ctx context.Context) (map[string]*XferStatus, e
 		return nil, fmt.Errorf("get(GetAllTorrents): %w", err)
 	}
 
-	if err := json.Unmarshal(response.Result, &xfers); err != nil {
+	err = json.Unmarshal(response.Result, &xfers)
+	if err != nil {
 		return nil, fmt.Errorf("json.Unmarshal(xfers): %w", err)
 	}
 
@@ -190,7 +192,8 @@ func (d *Deluge) GetXfersCompatContext(ctx context.Context) (map[string]*XferSta
 		return nil, fmt.Errorf("get(GetAllTorrents): %w", err)
 	}
 
-	if err := json.Unmarshal(response.Result, &xfers); err != nil {
+	err = json.Unmarshal(response.Result, &xfers)
+	if err != nil {
 		return nil, fmt.Errorf("json.Unmarshal(xfers): %w", err)
 	}
 
@@ -212,7 +215,9 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 	// This method returns a "mixed list" which requires an interface.
 	// Deluge devs apparently hate Go. :(
 	servers := make([][]interface{}, 0)
-	if err := json.Unmarshal(response.Result, &servers); err != nil {
+
+	err = json.Unmarshal(response.Result, &servers)
+	if err != nil {
 		return fmt.Errorf("json.Unmarshal(rawResult1): %w", err)
 	}
 
@@ -224,7 +229,7 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 		backend := Backend{ID: serverID}
 		backend.Addr, _ = server[1].(string)
 		val, _ := server[2].(float64)
-		backend.Addr += ":" + strconv.FormatFloat(val, 'f', 0, 64) //nolint:gomnd,nolintlint
+		backend.Addr += ":" + strconv.FormatFloat(val, 'f', 0, 64)
 		backend.Prot, _ = server[3].(string)
 		d.Backends[serverID] = backend
 	}
@@ -236,6 +241,7 @@ func (d *Deluge) setVersion(ctx context.Context) error {
 	}
 
 	server := make([]interface{}, 0)
+
 	err = json.Unmarshal(response.Result, &server)
 	if err != nil {
 		return fmt.Errorf("json.Unmarshal(rawResult2): %w", err)
@@ -269,6 +275,7 @@ func (d *Deluge) req(ctx context.Context, method string, params interface{}, loo
 	defer func() { _ = resp.Body.Close() }()
 
 	var response Response
+
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
 		return nil, fmt.Errorf("json.Unmarshal(response): %w", err)
